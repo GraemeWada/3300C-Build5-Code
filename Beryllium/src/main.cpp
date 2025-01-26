@@ -318,8 +318,8 @@ void opcontrol() {
         }
 
         // move the robot
-        // antiTipDrive(rightX, leftY, 1000, 3000, 15, 20, 1.05, 1.09);
-        chassis.arcade(leftY, rightX);
+        antiTipDrive(rightX, leftY, 1000, 3000, 15, 20, 1.05, 1.09);
+        // chassis.arcade(leftY, rightX);
 
         // delay to save resources
         pros::delay(25);
