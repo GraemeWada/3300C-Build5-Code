@@ -159,45 +159,52 @@ float driveCurve(float input, float deadband, float minOutput, float curve) {
     const float i127 = pow(curve, g127 - 127) * g127;
     return (127.0 - minOutput) / (127) * i * 127 / i127 + minOutput * lemlib::sgn(input);
 }
-void antiTipDrive(int leftIN, int rightIN, double changeRate, int maxChange, float deadband, float minOutput, float Rcurve, float Lcurve){
+void antiTipDrive(int leftIN, int rightIN, double changeRate, int maxChange, float deadband, float minOutput, float Rcurve, float Lcurve) {
     static int prevLeftPower = 0;
     static int prevRightPower = 0;
-    float leftC = driveCurve(leftIN, deadband, minOutput,Lcurve);
-    float rightC= driveCurve(rightIN, deadband, minOutput,Rcurve);
-    leftC = (rightC ==0)?leftC: leftC*.60;
+    static float prevRightIN = 0; 
+    static bool pulseActive = false; 
 
-    float leftPower = ( leftC + rightC) * 12000 / 127;
+    float leftC = driveCurve(leftIN, deadband, minOutput, Lcurve);
+    float rightC = driveCurve(rightIN, deadband, minOutput, Rcurve);
+    leftC = (rightC == 0) ? leftC : leftC * 0.60;
+
+    float leftPower = (leftC + rightC) * 12000 / 127;
     float rightPower = (rightC - leftC) * 12000 / 127;
 
+    // Detect quick joystick release
+    float releaseSpeed = fabs(prevRightIN - rightIN); 
+    bool isCentered = fabs(rightIN) <= deadband+10;//tune 10
 
-    int leftChange  = leftPower - prevLeftPower;
+    if (!isCentered) pulseActive = false; 
+
+    if (releaseSpeed > 50 && isCentered && !pulseActive) { // tune 50
+        // Apply reverse pulse proportional to previous power
+        leftPower = -prevLeftPower * 0.3; // tune 30%
+        rightPower = -prevRightPower * 0.3;
+        pulseActive = true; 
+        pros::delay(75); // tune 75
+    }
+
+    int leftChange = leftPower - prevLeftPower;
     int rightChange = rightPower - prevRightPower;
 
-    if(abs(leftChange) >= maxChange){
-         if (leftChange > 0) {
-            leftPower = prevLeftPower + changeRate;  // accel limit
-        } else {
-            leftPower = prevLeftPower - changeRate;  // deccel limit
-        }
+    if (abs(leftChange) >= maxChange) {
+        leftPower = prevLeftPower + ((leftChange > 0) ? changeRate : -changeRate);
     }
 
-    if(abs(rightChange) >= maxChange){
-         if (rightChange > 0) {
-            rightPower = prevRightPower + changeRate;  // accel limit
-        } else {
-            rightPower = prevRightPower - changeRate;  // deccel limit
-        }
+    if (abs(rightChange) >= maxChange) {
+        rightPower = prevRightPower + ((rightChange > 0) ? changeRate : -changeRate);
     }
 
-    //Update motor voltages
+    // Update motors
     left.move_voltage(leftPower);
     right.move_voltage(rightPower);
 
-    //Update prev values
+    // Save previous values
     prevLeftPower = leftPower;
     prevRightPower = rightPower;
-    
-
+    prevRightIN = rightIN;
 }
 
 /**
