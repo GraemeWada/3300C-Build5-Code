@@ -100,6 +100,56 @@ void initialize() {
             pros::delay(20);
         }
     });
+    pros::Task intakeWithSort([&](){
+        int degsToReverse = 360;
+        int inRotationStart = 0;
+        static int redMin = 9;
+        static int redMax = 18;
+        static int blueMin = 190;
+        static int blueMax = 250;
+        bool hasSeenRejection = false;
+        optical.set_led_pwm(100);
+
+        while(true){
+            if(inState == intakeState::IN){
+                intake.move_voltage(12000);
+                //colour sortign
+                if(color == alliance::RED){
+                    if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection && optical.get_proximity() <= 60){
+                        inRotationStart = intake.get_position();
+                    }
+                    if(hasSeenRejection && inRotationStart - intake.get_position() >= degsToReverse){
+                        intake.move_voltage(-12000);
+                        pros::delay(80);
+                        hasSeenRejection = false;
+                    }
+                }
+                else if(color == alliance::BLUE){
+                    if(optical.get_hue()>redMin&& optical.get_hue()<redMax){
+                        inRotationStart = intake.get_position();
+                    }
+                    if(hasSeenRejection && inRotationStart - intake.get_position() >= degsToReverse){
+                        intake.move_voltage(-12000);
+                        pros::delay(80);
+                        hasSeenRejection = false;
+                    }
+                }
+
+
+
+
+
+            } else if(inState == intakeState::OUT){
+                intake.move_voltage(-12000);
+            } else {
+                intake.move_voltage(0);
+                intake.brake();
+                intake.tare_position();
+            }
+            pros::delay(10);
+        }
+
+    });
 }
 
 /**
@@ -107,7 +157,30 @@ void initialize() {
  * the VEX Competition Switch, following either autonomous or opcontrol. When
  * the robot is enabled, this task will exit.
  */
-void disabled() {clampPistons.set_value(false);}
+void disabled() {
+    clampPistons.set_value(false);
+
+    static int redMin = 9;
+    static int redMax = 18;
+    static int blueMin = 190;
+    static int blueMax = 250;
+    while(true){
+        //check colour by looking at preload ring
+        if(optical.get_hue()>redMin&& optical.get_hue()<redMax){
+            color = alliance::RED;
+        }
+        else if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax){
+            color = alliance::BLUE;
+        }
+        else{
+            color = alliance::RED;
+        }
+        pros::delay(20);
+    }
+   
+    
+    
+}
 
 /**
  * Runs after initialize(), and before autonomous when connected to the Field
@@ -132,6 +205,23 @@ void competition_initialize() {}
  * from where it left off.
  */
 void autonomous() {
+    static int redMin = 9;
+    static int redMax = 18;
+    static int blueMin = 190;
+    static int blueMax = 250;
+
+    //check colour by looking at preload ring
+    if(optical.get_hue()>redMin&& optical.get_hue()<redMax){
+        color = alliance::RED;
+    }
+    else if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax){
+        color = alliance::BLUE;
+    }
+    else{
+        color = alliance::RED;
+    }
+    pros::delay(20);
+    
     safeSigAWP();
 }
 
@@ -241,11 +331,13 @@ void opcontrol() {
         int rightX = controller.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
 
 		if(controller.get_digital(DIGITAL_R1)){
-    	    intake.move_voltage(12000);
+    	    //intake.move_voltage(12000);
+            inState = intakeState::IN;
         } else if (controller.get_digital(DIGITAL_R2)){
-            intake.move_voltage(-12000);
+            //intake.move_voltage(-12000);
+            inState = intakeState::OUT;
         } else {
-            intake.brake();
+            inState = intakeState::STOP;
 		}
         if(controller.get_digital(DIGITAL_DOWN)&&controller.get_digital(DIGITAL_B) &&!manuealLift){
             if(controller.get_digital_new_press(DIGITAL_DOWN)&&controller.get_digital_new_press(DIGITAL_B)){

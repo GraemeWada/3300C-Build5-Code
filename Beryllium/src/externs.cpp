@@ -1,6 +1,17 @@
 #include "main.h"
 #include "externs.hpp"
 #include "lemlib/api.hpp"
+enum class intakeState{
+    IN,
+    OUT,
+    STOP
+};
+enum class alliance{
+    RED,
+    BLUE
+};
+intakeState inState = intakeState::STOP;
+alliance color = alliance::RED;
 
 pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
@@ -9,6 +20,8 @@ pros::MotorGroup right({-1, 2, 3}, pros::MotorGearset::blue);
 
 pros::Motor intake(-11);
 pros::Motor ws(18);
+
+pros::Optical optical(10);//update port when run
 
 pros::Rotation wsr(19);
 

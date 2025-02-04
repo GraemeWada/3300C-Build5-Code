@@ -1,5 +1,16 @@
 #include "lemlib/api.hpp"
 
+enum class intakeState{
+    IN,
+    OUT,
+    STOP
+};
+enum class alliance{
+    RED,
+    BLUE
+};
+extern alliance color;
+extern intakeState inState;
 extern pros::Controller controller;
 
 extern pros::MotorGroup left;
@@ -16,6 +27,7 @@ extern pros::ADIDigitalOut descore;
 extern pros::Rotation h;
 extern pros::Rotation v;
 extern pros::Imu imu;
+extern pros::Optical optical;
 
 extern pros::Distance distanceSensor;
 
