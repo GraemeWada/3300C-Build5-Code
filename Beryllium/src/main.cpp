@@ -101,7 +101,7 @@ void initialize() {
         }
     });
     pros::Task intakeWithSort([&](){
-        int degsToReverse = 360;
+        int degsToReverse = 170;
         int inRotationStart = 0;
         static int redMin = 9;
         static int redMax = 18;
@@ -114,21 +114,31 @@ void initialize() {
             if(inState == intakeState::IN){
                 intake.move_voltage(12000);
                 //colour sortign
+
                 if(color == alliance::RED){
-                    if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection && optical.get_proximity() <= 60){
+                    if(optical.get_proximity())
+                    if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection ){
+                        intake.tare_position();
                         inRotationStart = intake.get_position();
+                        hasSeenRejection = true;
+
+                        pros::lcd::print(4, "Proximty %ld", optical.get_proximity()); // heading
+
+
+
                     }
-                    if(hasSeenRejection && inRotationStart - intake.get_position() >= degsToReverse){
+                    if(hasSeenRejection && optical.get_proximity()<=210){
                         intake.move_voltage(-12000);
-                        pros::delay(80);
+                        pros::delay(90);
                         hasSeenRejection = false;
                     }
                 }
                 else if(color == alliance::BLUE){
                     if(optical.get_hue()>redMin&& optical.get_hue()<redMax){
                         inRotationStart = intake.get_position();
+                                                hasSeenRejection = true;
                     }
-                    if(hasSeenRejection && inRotationStart - intake.get_position() >= degsToReverse){
+                    if(hasSeenRejection && intake.get_position()-inRotationStart >= degsToReverse){
                         intake.move_voltage(-12000);
                         pros::delay(80);
                         hasSeenRejection = false;
@@ -145,8 +155,9 @@ void initialize() {
                 intake.move_voltage(0);
                 intake.brake();
                 intake.tare_position();
+                
             }
-            pros::delay(10);
+            pros::delay(5);
         }
 
     });

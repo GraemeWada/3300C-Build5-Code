@@ -1,11 +1,11 @@
 #include "lemlib/api.hpp"
 
-enum class intakeState{
+enum intakeState{
     IN,
     OUT,
     STOP
 };
-enum class alliance{
+enum alliance{
     RED,
     BLUE
 };
