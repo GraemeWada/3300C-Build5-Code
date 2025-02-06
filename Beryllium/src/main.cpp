@@ -116,7 +116,6 @@ void initialize() {
                 //colour sortign
 
                 if(color == alliance::RED){
-                    if(optical.get_proximity())
                     if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection ){
                         intake.tare_position();
                         inRotationStart = intake.get_position();
@@ -134,13 +133,20 @@ void initialize() {
                     }
                 }
                 else if(color == alliance::BLUE){
-                    if(optical.get_hue()>redMin&& optical.get_hue()<redMax){
+                    
+                    if(optical.get_hue()>redMin&& optical.get_hue()<redMax && !hasSeenRejection ){
+                        intake.tare_position();
                         inRotationStart = intake.get_position();
-                                                hasSeenRejection = true;
+                        hasSeenRejection = true;
+
+                        pros::lcd::print(4, "seen red"); // heading
+
+
+
                     }
-                    if(hasSeenRejection && intake.get_position()-inRotationStart >= degsToReverse){
+                    if(hasSeenRejection && optical.get_proximity()<=210){
                         intake.move_voltage(-12000);
-                        pros::delay(80);
+                        pros::delay(90);
                         hasSeenRejection = false;
                     }
                 }
@@ -233,7 +239,7 @@ void autonomous() {
     }
     pros::delay(20);
     
-    safeSigAWP();
+    rushBlue();
 }
 
 
@@ -279,7 +285,7 @@ void antiTipDrive(int leftIN, int rightIN, double changeRate, int maxChange, flo
 
     if (!isCentered) pulseActive = false; 
 
-    if (releaseSpeed > 50 && isCentered && !pulseActive) { // tune 50
+    if (isCentered && !pulseActive) { // tune 50
         // Apply reverse pulse proportional to previous power
         leftPower = -prevLeftPower * 0.3; // tune 30%
         rightPower = -prevRightPower * 0.3;
@@ -366,10 +372,20 @@ void opcontrol() {
 			clamp = !clamp;
 			clampPistons.set_value(clamp);
 		}
-		if(controller.get_digital_new_press(DIGITAL_UP)){
+		if(controller.get_digital_new_press(DIGITAL_Y)){
 			descoring = !descoring;
 			descore.set_value(descoring);
 		}
+        if(controller.get_digital_new_press(DIGITAL_UP)){
+            if(color == alliance::RED){
+                color = color = alliance::BLUE;
+            }
+
+            else if(color == alliance::BLUE){
+                color = color = alliance::RED;
+            }
+
+        }
 
         if(controller.get_digital_new_press(DIGITAL_L2)){
             liftpid.reset();

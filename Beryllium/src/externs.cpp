@@ -54,9 +54,15 @@ lemlib::ControllerSettings angular_controller(3.4, // proportional gain (kP)
                                               0 // maximum acceleration (slew)
 );
 
-lemlib::OdomSensors sensors(&vtw, // vertical tracking wheel 1, set to null
+// lemlib::OdomSensors sensors(&vtw, // vertical tracking wheel 1, set to null
+//                             nullptr, // vertical tracking wheel 2, set to nullptr as we are using IMEs
+//                             &htw, // horizontal tracking wheel 1
+//                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
+//                             &imu // inertial sensor
+// );
+lemlib::OdomSensors sensors(nullptr, // vertical tracking wheel 1, set to null
                             nullptr, // vertical tracking wheel 2, set to nullptr as we are using IMEs
-                            &htw, // horizontal tracking wheel 1
+                            nullptr, // horizontal tracking wheel 1
                             nullptr, // horizontal tracking wheel 2, set to nullptr as we don't have a second one
                             &imu // inertial sensor
 );
