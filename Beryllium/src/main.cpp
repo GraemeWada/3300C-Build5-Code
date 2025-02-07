@@ -100,73 +100,163 @@ void initialize() {
             pros::delay(20);
         }
     });
-    pros::Task intakeWithSort([&](){
-        int degsToReverse = 170;
-        int inRotationStart = 0;
-        static int redMin = 9;
-        static int redMax = 18;
-        static int blueMin = 190;
-        static int blueMax = 250;
-        bool hasSeenRejection = false;
-        optical.set_led_pwm(100);
+    // pros::Task intakeWithSort([&](){
+    //     int degsToReverse = 170;
+    //     int inRotationStart = 0;
+    //     static int redMin = 9;
+    //     static int redMax = 18;
+    //     static int blueMin = 190;
+    //     static int blueMax = 250;
+    //     bool hasSeenRejection = false;
+    //     optical.set_led_pwm(100);
 
-        while(true){
-            if(inState == intakeState::IN){
-                intake.move_voltage(12000);
-                //colour sortign
+    //     while(true){
+    //         if(inState == intakeState::IN){
+    //             intake.move_voltage(12000);
+    //             //colour sortign
 
-                if(color == alliance::RED){
-                    if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection ){
-                        intake.tare_position();
-                        inRotationStart = intake.get_position();
-                        hasSeenRejection = true;
+    //             if(color == alliance::RED){
+    //                 if(optical.get_hue()>blueMin&& optical.get_hue()<blueMax && !hasSeenRejection ){
+    //                     intake.tare_position();
+    //                     inRotationStart = intake.get_position();
+    //                     hasSeenRejection = true;
 
-                        pros::lcd::print(4, "Proximty %ld", optical.get_proximity()); // heading
+    //                     pros::lcd::print(4, "Proximty %ld", optical.get_proximity()); // heading
 
 
 
-                    }
-                    if(hasSeenRejection && optical.get_proximity()<=210){
-                        intake.move_voltage(-12000);
-                        pros::delay(90);
-                        hasSeenRejection = false;
-                    }
-                }
-                else if(color == alliance::BLUE){
+    //                 }
+    //                 if(hasSeenRejection && optical.get_proximity()<=210){
+    //                     intake.move_voltage(-12000);
+    //                     pros::delay(90);
+    //                     hasSeenRejection = false;
+    //                 }
+    //             }
+    //             else if(color == alliance::BLUE){
                     
-                    if(optical.get_hue()>redMin&& optical.get_hue()<redMax && !hasSeenRejection ){
-                        intake.tare_position();
-                        inRotationStart = intake.get_position();
-                        hasSeenRejection = true;
+    //                 if(optical.get_hue()>redMin&& optical.get_hue()<redMax && !hasSeenRejection ){
+    //                     intake.tare_position();
+    //                     inRotationStart = intake.get_position();
+    //                     hasSeenRejection = true;
 
-                        pros::lcd::print(4, "seen red"); // heading
+    //                     pros::lcd::print(4, "seen red"); // heading
 
 
 
-                    }
-                    if(hasSeenRejection && optical.get_proximity()<=210){
+    //                 }
+    //                 if(hasSeenRejection && optical.get_proximity()<=210){
+    //                     intake.move_voltage(-12000);
+    //                     pros::delay(90);
+    //                     hasSeenRejection = false;
+    //                 }
+    //             }
+
+
+
+
+
+    //         } else if(inState == intakeState::OUT){
+    //             intake.move_voltage(-12000);
+    //         } else {
+    //             intake.move_voltage(0);
+    //             intake.brake();
+    //             intake.tare_position();
+                
+    //         }
+    //         pros::delay(5);
+    //     }
+
+    // });
+    pros::Task intakeWithSort([&]() {
+        // Configuration constants (tune these during testing)
+        const int EJECT_DISTANCE = 200;       // Encoder ticks for ejection (optional backup)
+        const int SAMPLE_WINDOW = 5;          // Number of hue samples to average
+        const int PROXIMITY_THRESHOLD = 210;    // Above this value, the ring is considered ejected
+        const int DEBOUNCE_MS = 50;           // Minimum time between rejections
+        const int REJECTION_DURATION = 100;   // Fallback ejection duration (ms)
+    
+        // Color
+        const int RED_LOW = 9, RED_HIGH = 18;
+        const int BLUE_LOW = 190, BLUE_HIGH = 250;
+        const int HUE_TOLERANCE = 5;          // Buffer zone at color boundaries
+    
+        // State tracking variables
+        static bool isRejecting = false;
+        static uint32_t lastRejectionTime = 0;
+        uint32_t ejectStartTime = 0;
+    
+        // Using a deque for hue samples to allow iteration
+        std::deque<int> hueSamples;
+    
+        optical.set_led_pwm(100);
+    
+        while (true) {
+            if (inState == intakeState::IN) {
+                // In normal intake mode, run the intake motor forward (unless in rejection mode)
+                if (!isRejecting) {
+                    intake.move_voltage(12000);
+                }
+    
+                // --- Color Detection & Averaging ---
+                int currentHue = optical.get_hue();
+                hueSamples.push_back(currentHue);
+                if (hueSamples.size() > SAMPLE_WINDOW) {
+                    hueSamples.pop_front();
+                }
+                int sumHue = 0;
+                for (int hue : hueSamples) {
+                    sumHue += hue;
+                }
+                int avgHue = sumHue / hueSamples.size();
+    
+                // Determine if the detected ring is the wrong color
+                bool wrongColor = false;
+                if (color == alliance::RED) {
+                    // For a red alliance
+                    wrongColor = (avgHue > (BLUE_LOW - HUE_TOLERANCE)) &&
+                                 (avgHue < (BLUE_HIGH + HUE_TOLERANCE));
+                } else {
+                    
+                    wrongColor = (avgHue > (RED_LOW - HUE_TOLERANCE)) &&
+                                 (avgHue < (RED_HIGH + HUE_TOLERANCE));
+                }
+    
+                // --- Begin Rejection ---
+                if (wrongColor && !isRejecting && (pros::millis() - lastRejectionTime > DEBOUNCE_MS)) {
+                    intake.tare_position();           // Reset encoder (if you still want to track movement)
+                    isRejecting = true;
+                    ejectStartTime = pros::millis();   // Record the start time of the ejection
+                    pros::lcd::print(4, "Rejecting ring - Hue: %d, Prox: %d", avgHue, optical.get_proximity());
+                }
+    
+                // --- Rejection Execution ---
+                if (isRejecting) {
+                    
+    
+                    // Check multiple conditions to determine if ejection is complete:
+                    bool sensorEjected = (optical.get_proximity() <= PROXIMITY_THRESHOLD);
+                    bool encoderEjected = (abs(intake.get_position()) >= EJECT_DISTANCE);
+                    bool timeEjected = (pros::millis() - ejectStartTime >= REJECTION_DURATION);
+    
+                    if (sensorEjected || encoderEjected || timeEjected) {
+                        // Ring is considered ejected; reset rejection state
+                        // Run the motor in reverse to eject the ring
                         intake.move_voltage(-12000);
-                        pros::delay(90);
-                        hasSeenRejection = false;
+                        pros::delay(85);
+                        isRejecting = false;
+                        lastRejectionTime = pros::millis();
                     }
                 }
-
-
-
-
-
-            } else if(inState == intakeState::OUT){
+            } else if (inState == intakeState::OUT) {
                 intake.move_voltage(-12000);
             } else {
                 intake.move_voltage(0);
                 intake.brake();
-                intake.tare_position();
-                
             }
             pros::delay(5);
         }
-
     });
+    
 }
 
 /**
@@ -279,19 +369,7 @@ void antiTipDrive(int leftIN, int rightIN, double changeRate, int maxChange, flo
     float leftPower = (leftC + rightC) * 12000 / 127;
     float rightPower = (rightC - leftC) * 12000 / 127;
 
-    // Detect quick joystick release
-    float releaseSpeed = fabs(prevRightIN - rightIN); 
-    bool isCentered = fabs(rightIN) <= deadband+10;//tune 10
-
-    if (!isCentered) pulseActive = false; 
-
-    if (isCentered && !pulseActive) { // tune 50
-        // Apply reverse pulse proportional to previous power
-        leftPower = -prevLeftPower * 0.3; // tune 30%
-        rightPower = -prevRightPower * 0.3;
-        pulseActive = true; 
-        pros::delay(75); // tune 75
-    }
+   
 
     int leftChange = leftPower - prevLeftPower;
     int rightChange = rightPower - prevRightPower;
@@ -388,6 +466,7 @@ void opcontrol() {
         }
 
         if(controller.get_digital_new_press(DIGITAL_L2)){
+            manuealLift = false;
             liftpid.reset();
             i++;
             if(i == 5){

@@ -39,6 +39,10 @@
 #include "autons.hpp"
 #include "skills.hpp"
 #include <cmath>
+#include <deque>   // For std::deque
+#include <queue>   // If using std::queue
+#include <numeric> // For std::accumulate (if used for averaging)
+#include <iostream>
 
 /**
  * You should add more #includes here
